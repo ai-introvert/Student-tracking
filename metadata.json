@@ -1,0 +1,10 @@
+{
+  "name": "WayHome",
+  "description": "Student school-to-home commute safety tracker with home location pinning and real-time parent and faculty adviser monitoring.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

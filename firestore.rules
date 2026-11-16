@@ -1,0 +1,427 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net: Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Global Hardened Primitives ---
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedEmail() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidLinkId(id) {
+      return id is string && id.size() >= 3 && id.size() <= 260 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidCode(code) {
+      return code is string && code.size() >= 6 && code.size() <= 12 && code.matches('^[A-Z0-9]+$');
+    }
+
+    function isValidLatLng(lat, lng) {
+      return lat is number && lng is number && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+    }
+
+    function isActiveWatcher(studentId) {
+      return isVerifiedEmail()
+        && exists(/databases/$(database)/documents/watcherLinks/$(studentId + '_' + request.auth.uid))
+        && get(/databases/$(database)/documents/watcherLinks/$(studentId + '_' + request.auth.uid)).data.status == 'active';
+    }
+
+    // --- Entity Validation Blueprints ---
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'email', 'viewMode', 'sectionName', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'email', 'viewMode', 'sectionName', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80
+        && data.email is string && data.email.size() <= 120
+        && data.viewMode in ['student', 'parent', 'adviser']
+        && data.sectionName is string && data.sectionName.size() <= 80
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSchool(data) {
+      return data.keys().hasAll(['id', 'name', 'address', 'lat', 'lng', 'createdBy', 'createdAt'])
+        && data.keys().hasOnly(['id', 'name', 'address', 'lat', 'lng', 'createdBy', 'createdAt'])
+        && isValidId(data.id)
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 100
+        && data.address is string && data.address.size() >= 1 && data.address.size() <= 200
+        && isValidLatLng(data.lat, data.lng)
+        && isValidId(data.createdBy)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidShareCode(data, code) {
+      return data.keys().hasAll(['code', 'studentId', 'studentOwnerUid', 'studentName', 'gradeSection', 'createdAt'])
+        && data.keys().hasOnly(['code', 'studentId', 'studentOwnerUid', 'studentName', 'gradeSection', 'createdAt'])
+        && isValidCode(data.code) && data.code == code
+        && isValidId(data.studentId)
+        && isValidId(data.studentOwnerUid)
+        && data.studentName is string && data.studentName.size() >= 1 && data.studentName.size() <= 80
+        && data.gradeSection is string && data.gradeSection.size() >= 1 && data.gradeSection.size() <= 60
+        && data.createdAt is timestamp;
+    }
+
+    function isValidStudentProfile(data) {
+      return data.keys().hasAll([
+          'id', 'ownerUid', 'studentName', 'gradeSection', 'schoolName', 'schoolLat', 'schoolLng',
+          'homeAddress', 'homeLat', 'homeLng', 'hasHomePin', 'shareCode', 'activeCommuteId',
+          'recentCommuteIds', 'currentStatus', 'lastLat', 'lastLng', 'lastHeading', 'lastSpeedKmh',
+          'etaMinutes', 'distanceRemainingMeters', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'ownerUid', 'studentName', 'gradeSection', 'schoolName', 'schoolLat', 'schoolLng',
+          'homeAddress', 'homeLat', 'homeLng', 'hasHomePin', 'shareCode', 'activeCommuteId',
+          'recentCommuteIds', 'currentStatus', 'lastLat', 'lastLng', 'lastHeading', 'lastSpeedKmh',
+          'etaMinutes', 'distanceRemainingMeters', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.ownerUid)
+        && data.studentName is string && data.studentName.size() >= 1 && data.studentName.size() <= 80
+        && data.gradeSection is string && data.gradeSection.size() >= 1 && data.gradeSection.size() <= 60
+        && data.schoolName is string && data.schoolName.size() >= 1 && data.schoolName.size() <= 100
+        && isValidLatLng(data.schoolLat, data.schoolLng)
+        && data.homeAddress is string && data.homeAddress.size() <= 200
+        && isValidLatLng(data.homeLat, data.homeLng)
+        && data.hasHomePin is bool
+        && isValidCode(data.shareCode)
+        && data.activeCommuteId is string && data.activeCommuteId.size() <= 128
+        && data.recentCommuteIds is list && data.recentCommuteIds.size() <= 10
+        && (data.recentCommuteIds.size() == 0 || data.recentCommuteIds[0] is string)
+        && data.currentStatus in ['at_school', 'en_route', 'arrived_home', 'sos_alert', 'idle']
+        && isValidLatLng(data.lastLat, data.lastLng)
+        && data.lastHeading is number && data.lastHeading >= 0 && data.lastHeading <= 360
+        && data.lastSpeedKmh is number && data.lastSpeedKmh >= 0 && data.lastSpeedKmh <= 250
+        && data.etaMinutes is number && data.etaMinutes >= 0 && data.etaMinutes <= 1440
+        && data.distanceRemainingMeters is number && data.distanceRemainingMeters >= 0 && data.distanceRemainingMeters <= 500000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidWatcherLink(data) {
+      return data.keys().hasAll([
+          'id', 'studentId', 'studentOwnerUid', 'studentName', 'gradeSection',
+          'watcherUid', 'watcherName', 'watcherRelation', 'shareCode', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'studentId', 'studentOwnerUid', 'studentName', 'gradeSection',
+          'watcherUid', 'watcherName', 'watcherRelation', 'shareCode', 'status', 'createdAt', 'updatedAt'
+        ])
+        && isValidLinkId(data.id)
+        && isValidId(data.studentId)
+        && isValidId(data.studentOwnerUid)
+        && data.studentName is string && data.studentName.size() >= 1 && data.studentName.size() <= 80
+        && data.gradeSection is string && data.gradeSection.size() >= 1 && data.gradeSection.size() <= 60
+        && isValidId(data.watcherUid)
+        && data.watcherName is string && data.watcherName.size() >= 1 && data.watcherName.size() <= 80
+        && data.watcherRelation in ['parent', 'adviser']
+        && isValidCode(data.shareCode)
+        && data.status in ['active', 'revoked']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidCommute(data) {
+      return data.keys().hasAll([
+          'id', 'studentId', 'studentOwnerUid', 'studentName', 'schoolName',
+          'originLat', 'originLng', 'homeAddress', 'destinationLat', 'destinationLng',
+          'travelMode', 'status', 'currentLat', 'currentLng', 'speedKmh',
+          'etaMinutes', 'distanceRemainingMeters', 'sosNote', 'endedAtMs', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'studentId', 'studentOwnerUid', 'studentName', 'schoolName',
+          'originLat', 'originLng', 'homeAddress', 'destinationLat', 'destinationLng',
+          'travelMode', 'status', 'currentLat', 'currentLng', 'speedKmh',
+          'etaMinutes', 'distanceRemainingMeters', 'sosNote', 'endedAtMs', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.studentId)
+        && isValidId(data.studentOwnerUid)
+        && data.studentName is string && data.studentName.size() >= 1 && data.studentName.size() <= 80
+        && data.schoolName is string && data.schoolName.size() >= 1 && data.schoolName.size() <= 100
+        && isValidLatLng(data.originLat, data.originLng)
+        && data.homeAddress is string && data.homeAddress.size() <= 200
+        && isValidLatLng(data.destinationLat, data.destinationLng)
+        && data.travelMode in ['WALKING', 'DRIVING', 'TRANSIT', 'BICYCLING']
+        && data.status in ['en_route', 'sos_alert', 'arrived_home', 'cancelled']
+        && isValidLatLng(data.currentLat, data.currentLng)
+        && data.speedKmh is number && data.speedKmh >= 0 && data.speedKmh <= 250
+        && data.etaMinutes is number && data.etaMinutes >= 0 && data.etaMinutes <= 1440
+        && data.distanceRemainingMeters is number && data.distanceRemainingMeters >= 0 && data.distanceRemainingMeters <= 500000
+        && data.sosNote is string && data.sosNote.size() <= 240
+        && data.endedAtMs is number && data.endedAtMs >= 0
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidFeed(data) {
+      return data.keys().hasAll(['commuteId', 'studentId', 'studentOwnerUid', 'breadcrumbs', 'events', 'updatedAt'])
+        && data.keys().hasOnly(['commuteId', 'studentId', 'studentOwnerUid', 'breadcrumbs', 'events', 'updatedAt'])
+        && isValidId(data.commuteId)
+        && isValidId(data.studentId)
+        && isValidId(data.studentOwnerUid)
+        && data.breadcrumbs is list && data.breadcrumbs.size() <= 100
+        && (data.breadcrumbs.size() == 0 || data.breadcrumbs[0] is map)
+        && data.events is list && data.events.size() <= 40
+        && (data.events.size() == 0 || data.events[0] is map)
+        && data.updatedAt is timestamp;
+    }
+
+    // --- Collection Rules ---
+
+    // 1. Private User Profiles (Owner-only PII)
+    match /users/{userId} {
+      allow get: if isVerifiedEmail() && isValidId(userId) && request.auth.uid == userId;
+      allow list: if false;
+      allow create: if isVerifiedEmail()
+        && isValidId(userId)
+        && request.auth.uid == userId
+        && isValidUser(incoming())
+        && incoming().uid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedEmail()
+        && isValidId(userId)
+        && request.auth.uid == userId
+        && isValidUser(incoming())
+        && incoming().uid == existing().uid
+        && incoming().email == existing().email
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'viewMode', 'sectionName', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    // 2. Registered School Campuses
+    match /schools/{schoolId} {
+      allow get: if isVerifiedEmail() && isValidId(schoolId);
+      allow list: if isVerifiedEmail();
+      allow create: if isVerifiedEmail()
+        && isValidId(schoolId)
+        && isValidSchool(incoming())
+        && incoming().id == schoolId
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time;
+      allow update: if isVerifiedEmail()
+        && isValidId(schoolId)
+        && isValidSchool(incoming())
+        && existing().createdBy == request.auth.uid
+        && incoming().id == existing().id
+        && incoming().createdBy == existing().createdBy
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'address', 'lat', 'lng']);
+      allow delete: if isVerifiedEmail() && isValidId(schoolId) && existing().createdBy == request.auth.uid;
+    }
+
+    // 3. Share Code Direct Lookup (No listing allowed)
+    match /shareCodes/{code} {
+      allow get: if isVerifiedEmail() && isValidCode(code);
+      allow list: if false;
+      allow create: if isVerifiedEmail()
+        && isValidCode(code)
+        && isValidShareCode(incoming(), code)
+        && incoming().studentOwnerUid == request.auth.uid
+        && incoming().createdAt == request.time;
+      allow update: if isVerifiedEmail()
+        && isValidCode(code)
+        && isValidShareCode(incoming(), code)
+        && existing().studentOwnerUid == request.auth.uid
+        && incoming().studentId == existing().studentId
+        && incoming().studentOwnerUid == existing().studentOwnerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['studentName', 'gradeSection']);
+      allow delete: if isVerifiedEmail() && isValidCode(code) && existing().studentOwnerUid == request.auth.uid;
+    }
+
+    // 4. Student Profiles (Home Pin & Live Telemetry)
+    match /studentProfiles/{studentId} {
+      allow get: if isVerifiedEmail()
+        && isValidId(studentId)
+        && (existing().ownerUid == request.auth.uid || isActiveWatcher(studentId));
+      allow list: if isVerifiedEmail() && resource.data.ownerUid == request.auth.uid;
+      allow create: if isVerifiedEmail()
+        && isValidId(studentId)
+        && isValidStudentProfile(incoming())
+        && incoming().id == studentId
+        && incoming().ownerUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedEmail()
+        && isValidId(studentId)
+        && isValidStudentProfile(incoming())
+        && existing().ownerUid == request.auth.uid
+        && incoming().id == existing().id
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().shareCode == existing().shareCode
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Action: Update Student Info, School Campus, or Home Pin
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'studentName', 'gradeSection', 'schoolName', 'schoolLat', 'schoolLng',
+            'homeAddress', 'homeLat', 'homeLng', 'hasHomePin', 'updatedAt'
+          ])
+          ||
+          // Action: Update Live Commute Telemetry
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'activeCommuteId', 'recentCommuteIds', 'currentStatus',
+            'lastLat', 'lastLng', 'lastHeading', 'lastSpeedKmh',
+            'etaMinutes', 'distanceRemainingMeters', 'updatedAt'
+          ])
+        );
+      allow delete: if false;
+    }
+
+    // 5. Authorized Parent & Faculty Adviser Watcher Links
+    match /watcherLinks/{linkId} {
+      allow get: if isVerifiedEmail()
+        && isValidLinkId(linkId)
+        && (existing().watcherUid == request.auth.uid || existing().studentOwnerUid == request.auth.uid);
+      allow list: if isVerifiedEmail()
+        && (resource.data.watcherUid == request.auth.uid || resource.data.studentOwnerUid == request.auth.uid);
+      allow create: if isVerifiedEmail()
+        && isValidLinkId(linkId)
+        && isValidWatcherLink(incoming())
+        && incoming().id == linkId
+        && linkId == (incoming().studentId + '_' + request.auth.uid)
+        && incoming().watcherUid == request.auth.uid
+        && incoming().status == 'active'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && exists(/databases/$(database)/documents/shareCodes/$(incoming().shareCode))
+        && get(/databases/$(database)/documents/shareCodes/$(incoming().shareCode)).data.studentId == incoming().studentId
+        && get(/databases/$(database)/documents/shareCodes/$(incoming().shareCode)).data.studentOwnerUid == incoming().studentOwnerUid;
+      allow update: if isVerifiedEmail()
+        && isValidLinkId(linkId)
+        && isValidWatcherLink(incoming())
+        && incoming().id == existing().id
+        && incoming().studentId == existing().studentId
+        && incoming().studentOwnerUid == existing().studentOwnerUid
+        && incoming().watcherUid == existing().watcherUid
+        && incoming().shareCode == existing().shareCode
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Action: Student owner revokes or restores access
+          (existing().studentOwnerUid == request.auth.uid
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']))
+          ||
+          // Action: Active watcher updates relation/name or unlinks themselves
+          (existing().watcherUid == request.auth.uid
+            && existing().status == 'active'
+            && incoming().diff(existing()).affectedKeys().hasOnly(['watcherName', 'watcherRelation', 'status', 'updatedAt']))
+        );
+      allow delete: if isVerifiedEmail()
+        && isValidLinkId(linkId)
+        && (existing().watcherUid == request.auth.uid || existing().studentOwnerUid == request.auth.uid);
+    }
+
+    // 6. Active & Historical Commute Sessions (with Terminal State Locking)
+    match /commutes/{commuteId} {
+      allow get: if isVerifiedEmail()
+        && isValidId(commuteId)
+        && (existing().studentOwnerUid == request.auth.uid || isActiveWatcher(existing().studentId));
+      allow list: if isVerifiedEmail() && resource.data.studentOwnerUid == request.auth.uid;
+      allow create: if isVerifiedEmail()
+        && isValidId(commuteId)
+        && isValidCommute(incoming())
+        && incoming().id == commuteId
+        && incoming().studentOwnerUid == request.auth.uid
+        && incoming().status == 'en_route'
+        && incoming().endedAtMs == 0
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && exists(/databases/$(database)/documents/studentProfiles/$(incoming().studentId))
+        && get(/databases/$(database)/documents/studentProfiles/$(incoming().studentId)).data.ownerUid == request.auth.uid;
+      allow update: if isVerifiedEmail()
+        && isValidId(commuteId)
+        && isValidCommute(incoming())
+        && existing().status in ['en_route', 'sos_alert']
+        && incoming().id == existing().id
+        && incoming().studentId == existing().studentId
+        && incoming().studentOwnerUid == existing().studentOwnerUid
+        && incoming().originLat == existing().originLat
+        && incoming().originLng == existing().originLng
+        && incoming().destinationLat == existing().destinationLat
+        && incoming().destinationLng == existing().destinationLng
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Action: Student updates live GPS movement, SOS alert, or marks arrived/cancelled
+          (existing().studentOwnerUid == request.auth.uid
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'currentLat', 'currentLng', 'speedKmh', 'etaMinutes',
+              'distanceRemainingMeters', 'status', 'sosNote', 'endedAtMs', 'updatedAt'
+            ]))
+          ||
+          // Action: Authorized Parent/Adviser acknowledges SOS alert
+          (isActiveWatcher(existing().studentId)
+            && existing().status == 'sos_alert'
+            && incoming().status == 'en_route'
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'sosNote', 'updatedAt']))
+        );
+      allow delete: if false;
+
+      // 7. Commute Breadcrumb Trail & Safety Event Feed (Master Gate Subcollection)
+      match /meta/{docId} {
+        allow get: if isVerifiedEmail()
+          && isValidId(commuteId)
+          && docId == 'feed'
+          && exists(/databases/$(database)/documents/commutes/$(commuteId))
+          && get(/databases/$(database)/documents/commutes/$(commuteId)).data.studentId == existing().studentId
+          && (existing().studentOwnerUid == request.auth.uid || isActiveWatcher(existing().studentId));
+        allow list: if false;
+        allow create: if isVerifiedEmail()
+          && isValidId(commuteId)
+          && docId == 'feed'
+          && isValidFeed(incoming())
+          && incoming().commuteId == commuteId
+          && incoming().studentOwnerUid == request.auth.uid
+          && incoming().updatedAt == request.time
+          && exists(/databases/$(database)/documents/commutes/$(commuteId))
+          && get(/databases/$(database)/documents/commutes/$(commuteId)).data.studentOwnerUid == request.auth.uid;
+        allow update: if isVerifiedEmail()
+          && isValidId(commuteId)
+          && docId == 'feed'
+          && isValidFeed(incoming())
+          && exists(/databases/$(database)/documents/commutes/$(commuteId))
+          && get(/databases/$(database)/documents/commutes/$(commuteId)).data.studentId == existing().studentId
+          && incoming().commuteId == existing().commuteId
+          && incoming().studentId == existing().studentId
+          && incoming().studentOwnerUid == existing().studentOwnerUid
+          && incoming().updatedAt == request.time
+          && (
+            // Action: Student updates breadcrumbs and safety events
+            (existing().studentOwnerUid == request.auth.uid
+              && incoming().diff(existing()).affectedKeys().hasOnly(['breadcrumbs', 'events', 'updatedAt']))
+            ||
+            // Action: Active Parent/Adviser appends a safety ping or SOS acknowledgment event
+            (isActiveWatcher(existing().studentId)
+              && incoming().diff(existing()).affectedKeys().hasOnly(['events', 'updatedAt']))
+          );
+        allow delete: if false;
+      }
+    }
+  }
+}

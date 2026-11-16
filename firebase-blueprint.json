@@ -1,0 +1,487 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated user profile storing display name, email (owner-only), and preferred workspace view mode.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "viewMode": {
+          "type": "string",
+          "enum": ["student", "parent", "adviser"]
+        },
+        "sectionName": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "displayName", "email", "viewMode", "sectionName", "createdAt", "updatedAt"]
+    },
+    "SchoolCampus": {
+      "title": "SchoolCampus",
+      "description": "Registered school campus origin point used for student commute routing.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "address": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "lat": {
+          "type": "number"
+        },
+        "lng": {
+          "type": "number"
+        },
+        "createdBy": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "name", "address", "lat", "lng", "createdBy", "createdAt"]
+    },
+    "StudentProfile": {
+      "title": "StudentProfile",
+      "description": "Student commute configuration including school origin, pinned home coordinates, share code, and latest live status.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerUid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "gradeSection": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "schoolName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "schoolLat": {
+          "type": "number"
+        },
+        "schoolLng": {
+          "type": "number"
+        },
+        "homeAddress": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "homeLat": {
+          "type": "number"
+        },
+        "homeLng": {
+          "type": "number"
+        },
+        "hasHomePin": {
+          "type": "boolean"
+        },
+        "shareCode": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 12,
+          "pattern": "^[A-Z0-9]+$"
+        },
+        "activeCommuteId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "recentCommuteIds": {
+          "type": "array"
+        },
+        "currentStatus": {
+          "type": "string",
+          "enum": ["at_school", "en_route", "arrived_home", "sos_alert", "idle"]
+        },
+        "lastLat": {
+          "type": "number"
+        },
+        "lastLng": {
+          "type": "number"
+        },
+        "lastHeading": {
+          "type": "number"
+        },
+        "lastSpeedKmh": {
+          "type": "number"
+        },
+        "etaMinutes": {
+          "type": "number"
+        },
+        "distanceRemainingMeters": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerUid",
+        "studentName",
+        "gradeSection",
+        "schoolName",
+        "schoolLat",
+        "schoolLng",
+        "homeAddress",
+        "homeLat",
+        "homeLng",
+        "hasHomePin",
+        "shareCode",
+        "activeCommuteId",
+        "recentCommuteIds",
+        "currentStatus",
+        "lastLat",
+        "lastLng",
+        "lastHeading",
+        "lastSpeedKmh",
+        "etaMinutes",
+        "distanceRemainingMeters",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ShareCodeLookup": {
+      "title": "ShareCodeLookup",
+      "description": "Direct-get lookup mapping a student share code to studentId and ownerUid without exposing home PII.",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 12,
+          "pattern": "^[A-Z0-9]+$"
+        },
+        "studentId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentOwnerUid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "gradeSection": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["code", "studentId", "studentOwnerUid", "studentName", "gradeSection", "createdAt"]
+    },
+    "WatcherLink": {
+      "title": "WatcherLink",
+      "description": "Authorized link granting a parent or faculty adviser read and safety-ping access to a student.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 260,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentOwnerUid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "gradeSection": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "watcherUid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "watcherName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "watcherRelation": {
+          "type": "string",
+          "enum": ["parent", "adviser"]
+        },
+        "shareCode": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 12,
+          "pattern": "^[A-Z0-9]+$"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "revoked"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "studentId",
+        "studentOwnerUid",
+        "studentName",
+        "gradeSection",
+        "watcherUid",
+        "watcherName",
+        "watcherRelation",
+        "shareCode",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "CommuteSession": {
+      "title": "CommuteSession",
+      "description": "Real-time commute session tracking a student traveling from school to their pinned home location.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentOwnerUid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "schoolName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "originLat": {
+          "type": "number"
+        },
+        "originLng": {
+          "type": "number"
+        },
+        "homeAddress": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "destinationLat": {
+          "type": "number"
+        },
+        "destinationLng": {
+          "type": "number"
+        },
+        "travelMode": {
+          "type": "string",
+          "enum": ["WALKING", "DRIVING", "TRANSIT", "BICYCLING"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["en_route", "sos_alert", "arrived_home", "cancelled"]
+        },
+        "currentLat": {
+          "type": "number"
+        },
+        "currentLng": {
+          "type": "number"
+        },
+        "speedKmh": {
+          "type": "number"
+        },
+        "etaMinutes": {
+          "type": "number"
+        },
+        "distanceRemainingMeters": {
+          "type": "number"
+        },
+        "sosNote": {
+          "type": "string",
+          "maxLength": 240
+        },
+        "endedAtMs": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "studentId",
+        "studentOwnerUid",
+        "studentName",
+        "schoolName",
+        "originLat",
+        "originLng",
+        "homeAddress",
+        "destinationLat",
+        "destinationLng",
+        "travelMode",
+        "status",
+        "currentLat",
+        "currentLng",
+        "speedKmh",
+        "etaMinutes",
+        "distanceRemainingMeters",
+        "sosNote",
+        "endedAtMs",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "CommuteFeed": {
+      "title": "CommuteFeed",
+      "description": "Bounded live GPS breadcrumbs and safety timeline events for an active or completed commute.",
+      "type": "object",
+      "properties": {
+        "commuteId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentOwnerUid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "breadcrumbs": {
+          "type": "array"
+        },
+        "events": {
+          "type": "array"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["commuteId", "studentId", "studentOwnerUid", "breadcrumbs", "events", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private user account profile and workspace preference."
+    },
+    "/schools/{schoolId}": {
+      "schema": { "$ref": "#/entities/SchoolCampus" },
+      "description": "Registered school campus origins."
+    },
+    "/studentProfiles/{studentId}": {
+      "schema": { "$ref": "#/entities/StudentProfile" },
+      "description": "Student home pin, school origin, and current commute status."
+    },
+    "/shareCodes/{code}": {
+      "schema": { "$ref": "#/entities/ShareCodeLookup" },
+      "description": "Invite code lookup for authorized parents and faculty advisers."
+    },
+    "/watcherLinks/{linkId}": {
+      "schema": { "$ref": "#/entities/WatcherLink" },
+      "description": "Parent and faculty adviser watcher authorization links."
+    },
+    "/commutes/{commuteId}": {
+      "schema": { "$ref": "#/entities/CommuteSession" },
+      "description": "Active and historical school-to-home commute sessions."
+    },
+    "/commutes/{commuteId}/meta/{docId}": {
+      "schema": { "$ref": "#/entities/CommuteFeed" },
+      "description": "Bounded live breadcrumb trail and safety event timeline for a commute."
+    }
+  }
+}
